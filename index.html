@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>In-Browser AI Audio Transcriber</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-800 font-sans p-4 md:p-8 flex items-center justify-center">
+
+    <div class="max-w-2xl w-full bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col">
+        <!-- Header -->
+        <div class="bg-blue-600 p-6 text-white text-center">
+            <h1 class="text-2xl font-bold">AI Audio Transcriber</h1>
+            <p class="text-blue-100 text-sm mt-2">100% private. Runs entirely in your browser.</p>
+        </div>
+
+        <div class="p-6 md:p-8 space-y-6">
+            
+            <!-- Global Error Message Container -->
+            <div id="errorMessage" class="hidden bg-red-50 text-red-600 p-4 rounded-xl text-sm border border-red-200 shadow-sm whitespace-pre-wrap leading-relaxed"></div>
+
+            <!-- Upload Section -->
+            <div id="dropzone" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:bg-gray-50 hover:border-blue-500 transition-colors">
+                <input type="file" id="fileInput" class="hidden" accept="audio/*">
+                <svg class="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                <p class="text-gray-600 font-medium">Click to upload or drag & drop</p>
+                <p class="text-xs text-gray-500 mt-1">MP3, WAV, M4A (Max 50MB)</p>
+            </div>
+
+            <!-- Audio Preview Section (Hidden initially) -->
+            <div id="previewSection" class="hidden space-y-4">
+                <div class="bg-gray-100 p-4 rounded-lg flex items-center justify-between">
+                    <div class="truncate pr-4 font-medium text-gray-700" id="fileName">filename.mp3</div>
+                    <button id="clearBtn" class="text-red-500 hover:text-red-700 text-sm font-semibold whitespace-nowrap">Clear File</button>
+                </div>
+                <audio id="audioPlayer" controls class="w-full h-10 rounded-lg"></audio>
+                
+                <button id="transcribeBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-md">
+                    Transcribe Audio
+                </button>
+            </div>
+
+            <!-- Progress Section (Hidden initially) -->
+            <div id="progressSection" class="hidden space-y-3">
+                <div class="flex justify-between text-sm font-medium text-gray-700">
+                    <span id="progressText">Initializing...</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                    <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full w-0 transition-all duration-300"></div>
+                </div>
+            </div>
+
+            <!-- Result Section (Hidden initially) -->
+            <div id="resultSection" class="hidden space-y-3">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                    <h3 class="text-lg font-bold text-gray-800">Transcription Result</h3>
+                    <label class="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors">
+                        <input type="checkbox" id="autoScrollToggle" checked class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                        Auto-Scroll & Sync
+                    </label>
+                </div>
+                <div id="transcriptContainer" class="bg-gray-50 border border-gray-200 rounded-xl p-4 max-h-64 overflow-y-auto scroll-smooth relative">
+                    <div id="transcriptText" class="text-gray-700 leading-relaxed"></div>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-3 pt-2">
+                    <button id="copyBtn" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2.5 px-2 sm:px-4 rounded-lg transition-colors border border-gray-300 shadow-sm text-sm sm:text-base">
+                        Copy Text
+                    </button>
+                    <button id="downloadSrtBtn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-2 sm:px-4 rounded-lg transition-colors shadow-sm flex justify-center items-center gap-2 text-sm sm:text-base">
+                        <svg class="w-4 h-4 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Get .SRT
+                    </button>
+                    
+                    <!-- NEW: Vocabulary Difficulty Selector & Button -->
+                    <div class="flex-1 flex gap-2">
+                        <select id="vocabLevel" class="bg-purple-50 border border-purple-200 text-purple-800 text-sm font-semibold rounded-lg focus:ring-purple-500 focus:border-purple-500 block p-2 shadow-sm w-1/3 outline-none cursor-pointer">
+                            <option value="a_level">A-Level (Basic)</option>
+                            <option value="b_level" selected>B-Level (Intermediate)</option>
+                            <option value="c_level">C-Level (Advanced)</option>
+                        </select>
+                        <button id="extractVocabBtn" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2.5 px-2 sm:px-4 rounded-lg transition-colors shadow-sm flex justify-center items-center gap-2 text-sm sm:text-base">
+                            <svg class="w-4 h-4 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                            Vocab
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vocabulary Study Section (Hidden initially) -->
+            <div id="vocabSection" class="hidden space-y-4 mt-6 border-t border-gray-200 pt-6">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-lg font-bold text-gray-800">Key Vocabulary</h3>
+                        <span id="levelBadge" class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded font-medium">Intermediate</span>
+                    </div>
+                    <!-- Export to CSV Button -->
+                    <button id="exportCsvBtn" class="hidden text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-1.5 px-3 rounded-md transition-colors border border-gray-300 shadow-sm flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Export CSV
+                    </button>
+                </div>
+                <div id="vocabList" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <!-- Vocab cards injected here -->
+                </div>
+            </div>
+
+        </div>
+
+        <!-- App Footer -->
+        <div class="bg-gray-100 py-3 px-6 text-center text-xs text-gray-500 border-t border-gray-200 mt-auto">
+            Created by Chen Chih &nbsp;&bull;&nbsp; March 15, 2026 &nbsp;&bull;&nbsp; v1.0.0
+        </div>
+    </div>
+
+    <!-- MAIN LOGIC -->
+    <script type="module">
+        // ---------------------------------------------------------
+        // BACKGROUND WEB WORKER (Prevents the browser from freezing!)
+        // ---------------------------------------------------------
+        const workerCode = `
+            import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.16.0';
+
+            env.allowLocalModels = false;
+            env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.16.0/dist/';
+
+            let transcriberModel = null;
+
+            self.onmessage = async (e) => {
+                const { type, audioData } = e.data;
+                if (type === 'transcribe') {
+                    try {
+                        if (!transcriberModel) {
+                            self.postMessage({ status: 'loading_model' });
+                            
+                            if (navigator.hardwareConcurrency) {
+                                env.backends.onnx.wasm.numThreads = Math.min(4, navigator.hardwareConcurrency);
+                            }
+                            
+                            transcriberModel = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', {
+                                quantized: true,
+                                progress_callback: (data) => {
+                                    self.postMessage({ status: 'download_progress', data: data });
+                                }
+                            });
+                        }
+
+                        self.postMessage({ status: 'transcribing' });
+
+                        // Force English Language to reduce AI hallucinations and improve accuracy
+                        const output = await transcriberModel(audioData, {
+                            chunk_length_s: 30,
+                            stride_length_s: 5,
+                            return_timestamps: true,
+                            language: 'english', 
+                            task: 'transcribe'
+                        });
+
+                        self.postMessage({ status: 'complete', output: output });
+                    } catch (err) {
+                        self.postMessage({ status: 'error', error: err.message || err.toString() });
+                    }
+                }
+            };
+        `;
+        
+        const workerBlob = new Blob([workerCode], { type: 'application/javascript' });
+        const aiWorker = new Worker(URL.createObjectURL(workerBlob), { type: 'module' });
+
+        // ---------------------------------------------------------
+        // UI & MAIN THREAD LOGIC
+        // ---------------------------------------------------------
+
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+
+        const previewSection = document.getElementById('previewSection');
+        const fileNameDisplay = document.getElementById('fileName');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const errorMessage = document.getElementById('errorMessage');
+        const clearBtn = document.getElementById('clearBtn');
+        const transcribeBtn = document.getElementById('transcribeBtn');
+        
+        const progressSection = document.getElementById('progressSection');
+        const progressText = document.getElementById('progressText');
+        const progressBar = document.getElementById('progressBar');
+        
+        const resultSection = document.getElementById('resultSection');
+        const transcriptContainer = document.getElementById('transcriptContainer');
+        const autoScrollToggle = document.getElementById('autoScrollToggle');
+        const transcriptText = document.getElementById('transcriptText');
+        const copyBtn = document.getElementById('copyBtn');
+        const downloadSrtBtn = document.getElementById('downloadSrtBtn');
+        const extractVocabBtn = document.getElementById('extractVocabBtn'); 
+        const vocabLevelSelect = document.getElementById('vocabLevel'); // Added
+        const levelBadge = document.getElementById('levelBadge'); // Added
+        const vocabSection = document.getElementById('vocabSection'); 
+        const vocabList = document.getElementById('vocabList'); 
+        const exportCsvBtn = document.getElementById('exportCsvBtn'); 
+
+        let currentFile = null;
+        let currentArrayBuffer = null; 
+        let isProcessing = false;
+        let currentSrtContent = ""; 
+        let currentRawText = ""; 
+        let currentVocabData = []; 
+
+        // --- Formatting Functions ---
+        const formatTimeSRT = (seconds) => {
+            const date = new Date(seconds * 1000);
+            const hh = String(Math.floor(seconds / 3600)).padStart(2, '0');
+            const mm = String(date.getUTCMinutes()).padStart(2, '0');
+            const ss = String(date.getUTCSeconds()).padStart(2, '0');
+            const ms = String(date.getUTCMilliseconds()).padStart(3, '0');
+            return `${hh}:${mm}:${ss},${ms}`;
+        };
+
+        const formatTimeUI = (seconds) => {
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        };
+
+        // --- Interactive Dictation ---
+        audioPlayer.addEventListener('timeupdate', () => {
+            if (audioPlayer.paused) return;
+            const currentTime = audioPlayer.currentTime;
+            const chunks = document.querySelectorAll('.transcript-chunk');
+            
+            chunks.forEach(chunk => {
+                const start = parseFloat(chunk.dataset.start);
+                const end = parseFloat(chunk.dataset.end);
+                const textElement = chunk.querySelector('.chunk-text');
+                
+                if (currentTime >= start && currentTime <= end + 0.3) {
+                    chunk.classList.add('bg-white', 'border-blue-200', 'shadow-md', 'scale-[1.01]', 'z-10');
+                    textElement.classList.add('text-blue-700', 'font-bold');
+                    
+                    if (autoScrollToggle && autoScrollToggle.checked) {
+                        const containerRect = transcriptContainer.getBoundingClientRect();
+                        const chunkRect = chunk.getBoundingClientRect();
+                        
+                        if (chunkRect.top < containerRect.top + 20 || chunkRect.bottom > containerRect.bottom - 20) {
+                            transcriptContainer.scrollTo({
+                                top: chunk.offsetTop - (transcriptContainer.clientHeight / 2) + (chunk.clientHeight / 2),
+                                behavior: 'smooth'
+                            });
+                        }
+                    }
+                } else {
+                    chunk.classList.remove('bg-white', 'border-blue-200', 'shadow-md', 'scale-[1.01]', 'z-10');
+                    textElement.classList.remove('text-blue-700', 'font-bold');
+                }
+            });
+        });
+
+        transcriptText.addEventListener('click', (e) => {
+            const chunk = e.target.closest('.transcript-chunk');
+            if (chunk) {
+                const start = parseFloat(chunk.dataset.start);
+                audioPlayer.currentTime = start;
+                audioPlayer.play();
+            }
+        });
+
+        // --- Upload & Read File ---
+        const handleFile = (file) => {
+            if (!file || !file.type.startsWith('audio/')) {
+                errorMessage.innerText = 'Please upload a valid audio file (MP3, WAV, etc).';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            dropzone.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+            resultSection.classList.add('hidden');
+            previewSection.classList.add('hidden');
+            
+            progressSection.classList.remove('hidden');
+            progressText.innerText = 'Loading file into memory...';
+            progressBar.classList.remove('animate-pulse');
+            progressBar.style.width = '0%';
+
+            const reader = new FileReader();
+            
+            reader.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    progressBar.style.width = `${percent}%`;
+                }
+            };
+
+            reader.onload = (e) => {
+                currentFile = file;
+                currentArrayBuffer = e.target.result; 
+                fileNameDisplay.innerText = file.name;
+                audioPlayer.src = URL.createObjectURL(file);
+                
+                progressSection.classList.add('hidden');
+                previewSection.classList.remove('hidden');
+                transcriptText.innerText = '';
+            };
+
+            reader.onerror = () => {
+                errorMessage.innerText = 'Failed to read the audio file.';
+                errorMessage.classList.remove('hidden');
+                progressSection.classList.add('hidden');
+                dropzone.classList.remove('hidden');
+            };
+
+            reader.readAsArrayBuffer(file);
+        };
+
+        dropzone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+        dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('border-blue-500', 'bg-blue-50'); });
+        dropzone.addEventListener('dragleave', () => { dropzone.classList.remove('border-blue-500', 'bg-blue-50'); });
+        dropzone.addEventListener('drop', (e) => { e.preventDefault(); dropzone.classList.remove('border-blue-500', 'bg-blue-50'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+
+        clearBtn.addEventListener('click', () => {
+            if (isProcessing) return;
+            currentFile = null;
+            currentArrayBuffer = null;
+            audioPlayer.src = '';
+            fileInput.value = '';
+            previewSection.classList.add('hidden');
+            resultSection.classList.add('hidden');
+            vocabSection.classList.add('hidden'); 
+            exportCsvBtn.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+            dropzone.classList.remove('hidden');
+            currentSrtContent = "";
+            currentRawText = "";
+            currentVocabData = [];
+            vocabList.innerHTML = ""; 
+        });
+
+        // --- Export Logic ---
+        copyBtn.addEventListener('click', () => {
+            try {
+                const tempTextArea = document.createElement('textarea');
+                tempTextArea.value = currentRawText;
+                document.body.appendChild(tempTextArea);
+                tempTextArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempTextArea);
+                
+                const originalText = copyBtn.innerText;
+                copyBtn.innerText = "Copied!";
+                setTimeout(() => copyBtn.innerText = originalText, 2000);
+            } catch (err) {
+                errorMessage.innerText = "Failed to copy. Your browser might be blocking clipboard access.";
+                errorMessage.classList.remove('hidden');
+            }
+        });
+
+        downloadSrtBtn.addEventListener('click', () => {
+            if (!currentSrtContent) return;
+            const blob = new Blob([currentSrtContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const originalName = currentFile ? currentFile.name.replace(/\.[^/.]+$/, "") : "transcript";
+            a.download = `${originalName}.srt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        exportCsvBtn.addEventListener('click', () => {
+            if (currentVocabData.length === 0) return;
+            let csvContent = "Word,Part of Speech,Chinese Translation,Example Sentence,Definition\n";
+            const escapeCSV = (text) => `"${String(text).replace(/"/g, '""')}"`;
+            currentVocabData.forEach(item => {
+                csvContent += `${escapeCSV(item.word)},${escapeCSV(item.pos)},${escapeCSV(item.chinese)},${escapeCSV(item.example)},${escapeCSV(item.definition)}\n`;
+            });
+            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' }); 
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Vocabulary_List.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // --- Smart Vocabulary Extractor (WITH DIFFICULTY LEVELS) ---
+        extractVocabBtn.addEventListener('click', async () => {
+            if (!currentRawText) return;
+
+            const selectedLevel = vocabLevelSelect.value;
+            const selectedText = vocabLevelSelect.options[vocabLevelSelect.selectedIndex].text;
+            
+            // Update UI
+            levelBadge.innerText = selectedText;
+            const originalBtnText = extractVocabBtn.innerHTML;
+            extractVocabBtn.innerText = "Extracting...";
+            extractVocabBtn.disabled = true;
+            exportCsvBtn.classList.add('hidden'); 
+            vocabList.innerHTML = `<p class="text-gray-500 text-sm col-span-2">Analyzing transcript for ${selectedText} vocabulary...</p>`;
+            vocabSection.classList.remove('hidden');
+            currentVocabData = []; 
+
+            // --- Configure Difficulty Heuristics ---
+            
+            // Top 100 absolute basic words (Ignored in ALL levels)
+            const top100Words = "the,be,to,of,and,a,in,that,have,i,it,for,not,on,with,he,as,you,do,at,this,but,his,by,from,they,we,say,her,she,or,an,will,my,one,all,would,there,their,what,so,up,out,if,about,who,get,which,go,me,when,make,can,like,time,no,just,him,know,take,people,into,year,your,good,some,could,them,see,other,than,then,now,look,only,come,its,over,think,also,back,after,use,two,how,our,work,first,well,way,even,new,want,because,any,these,give,day,most,us";
+            
+            // Top 400 conversational words (Ignored in Intermediate & Advanced)
+            const top400Words = top100Words + ",is,are,was,were,been,has,had,does,did,doing,am,im,dont,cant,didnt,isnt,arent,wasnt,werent,hasnt,havent,doesnt,wouldnt,shouldnt,couldnt,thats,theres,here,where,why,how,many,much,very,really,too,such,own,just,still,down,right,back,around,still,off,always,never,sometimes,usually,often,going,getting,making,taking,looking,thinking,things,something,anything,nothing,everything,someone,anyone,everyone,nobody,tell,ask,try,feel,leave,put,mean,keep,let,begin,seem,help,talk,turn,start,might,show,hear,play,run,move,like,live,believe,hold,bring,happen,must,write,provide,sit,stand,lose,pay,meet,include,continue,set,learn,change,lead,understand,watch,follow,stop,create,speak,read,allow,add,spend,grow,open,walk,win,offer,remember,love,consider,appear,buy,wait,serve,die,send,expect,build,stay,fall,cut,reach,kill,remain,suggest,raise,pass,sell,require,report,decide,pull,return,explain,hope,develop,carry,break,receive,agree,support,hit,produce,eat,cover,catch,draw,choose,store,summer,winter,spring,fall,mother,father,brother,sister,friend,family,school,house,home,car,room,book,girl,boy,man,woman,men,women,child,children,life,world,part,problem,hand,place,week,point,company,system,program,question,number,night,water,fact,month,lot,right,study,book,eye,job,word,business,issue,side,kind,head,house,service,friend,father,power,hour,game,line,end,member,law,car,city,community,name,president,team,minute,idea,kid,body,information,back,parent,face,others,level,office,door,health,person,art,war,history,party,result,change,morning,reason,research,girl,guy,moment,air,teacher,force,education,boy,past,maybe,probably,actually,definitely,basically,obviously,literally,honestly,yeah,yes,okay,wow,oh,um,uh,like,without,another,those,between,through,against,whether,however";
+            
+            let stopWords;
+            if (selectedLevel === 'a_level') {
+                stopWords = new Set(top100Words.split(','));
+            } else {
+                stopWords = new Set(top400Words.split(','));
+            }
+
+            const advancedSuffixes = ['tion', 'sion', 'ment', 'ity', 'ance', 'ence', 'able', 'ible', 'ive', 'ous', 'ize', 'ise', 'logy', 'ic', 'al', 'ate', 'ify'];
+
+            const words = currentRawText.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/);
+            const wordData = {};
+
+            // Pass 1: Filter words based on the selected level rules
+            words.forEach(w => {
+                let isValid = false;
+                if (selectedLevel === 'a_level') {
+                    // A-Level (Basic): Length 3-7. Allows common conversational words (not in top 100)
+                    if (w.length >= 3 && w.length <= 7 && !stopWords.has(w)) isValid = true;
+                } else if (selectedLevel === 'b_level') {
+                    // B-Level (Intermediate): Length 5+. Ignores top 400.
+                    if (w.length >= 5 && !stopWords.has(w)) isValid = true;
+                } else if (selectedLevel === 'c_level') {
+                    // C-Level (Advanced): Length 6+. Ignores top 400.
+                    if (w.length >= 6 && !stopWords.has(w)) isValid = true;
+                }
+
+                if (isValid) {
+                    if (!wordData[w]) wordData[w] = { count: 0, score: 0 };
+                    wordData[w].count += 1;
+                }
+            });
+
+            // Pass 2: Score the remaining words based on the selected level
+            Object.keys(wordData).forEach(w => {
+                let score = wordData[w].count;
+
+                if (selectedLevel === 'a_level') {
+                    // Rank mostly by frequency to catch highly used simple words
+                    score = wordData[w].count;
+                } else if (selectedLevel === 'b_level') {
+                    // Rank by frequency AND length
+                    score = wordData[w].count * w.length;
+                } else if (selectedLevel === 'c_level') {
+                    // Rank by frequency, length, AND academic suffixes
+                    score = wordData[w].count * w.length;
+                    if (advancedSuffixes.some(suffix => w.endsWith(suffix))) {
+                        score *= 3.0; // Huge boost for suffixes (-tion, -ity)
+                    }
+                    if (w.length >= 9) {
+                        score *= 1.5; // Boost for very long words
+                    }
+                }
+
+                wordData[w].score = score;
+            });
+
+            const sortedWords = Object.keys(wordData).sort((a, b) => wordData[b].score - wordData[a].score);
+
+            let htmlContent = "";
+            let successfulWords = 0;
+
+            for (const word of sortedWords) {
+                if (successfulWords >= 8) break; 
+
+                try {
+                    const dictRes = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+                    if (!dictRes.ok) continue; 
+                    
+                    const dictData = await dictRes.json();
+                    const meaning = dictData[0].meanings.find(m => m.definitions.length > 0);
+                    
+                    if (meaning) {
+                        const partOfSpeech = meaning.partOfSpeech;
+                        const rawDefinition = meaning.definitions[0].definition;
+                        
+                        let exampleSentence = meaning.definitions[0].example;
+                        if (!exampleSentence) {
+                            for (const m of dictData[0].meanings) {
+                                const defWithEx = m.definitions.find(d => d.example);
+                                if (defWithEx) {
+                                    exampleSentence = defWithEx.example;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        const displayUsage = exampleSentence 
+                            ? `"${exampleSentence}"` 
+                            : `Def: ${rawDefinition}`;
+
+                        let chineseTranslation = "";
+                        try {
+                            const transRes = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|zh-TW`);
+                            const transData = await transRes.json();
+                            if(transData && transData.responseData) {
+                                chineseTranslation = transData.responseData.translatedText;
+                            }
+                        } catch(e) {
+                            chineseTranslation = "翻譯失敗"; 
+                        }
+
+                        currentVocabData.push({
+                            word: word,
+                            pos: partOfSpeech,
+                            chinese: chineseTranslation,
+                            example: exampleSentence || '',
+                            definition: rawDefinition
+                        });
+
+                        htmlContent += `
+                            <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:border-purple-400 transition-colors">
+                                <div class="flex items-baseline justify-between mb-2 gap-2">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h4 class="font-bold text-purple-700 capitalize text-lg">${word}</h4>
+                                        <span class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-semibold uppercase tracking-wider">${partOfSpeech}</span>
+                                    </div>
+                                    <span class="text-sm font-bold text-gray-800 shrink-0">${chineseTranslation}</span>
+                                </div>
+                                
+                                <div class="bg-purple-50 p-3 rounded-lg border border-purple-100 mt-2">
+                                    <p class="text-sm text-gray-800">
+                                        <span class="font-semibold text-purple-600 text-[10px] uppercase mb-1 block">Usage / Example</span>
+                                        ${displayUsage}
+                                    </p>
+                                </div>
+                            </div>
+                        `;
+                        successfulWords++;
+                    }
+                } catch (e) {
+                    console.log("Fetch failed for: ", word);
+                }
+            }
+
+            if (htmlContent === "") {
+                vocabList.innerHTML = `<p class="text-gray-500 text-sm col-span-2">No dictionary matches found for the ${selectedText} level.</p>`;
+            } else {
+                vocabList.innerHTML = htmlContent;
+                exportCsvBtn.classList.remove('hidden'); 
+            }
+
+            extractVocabBtn.innerHTML = originalBtnText;
+            extractVocabBtn.disabled = false;
+        });
+
+        // --- Core Audio Processing ---
+        const runBackgroundTranscription = (audioData) => {
+            return new Promise((resolve, reject) => {
+                aiWorker.onmessage = (e) => {
+                    const { status, data, output, error } = e.data;
+                    
+                    if (status === 'loading_model') {
+                        progressText.innerText = 'Downloading AI model... (approx. 40MB)';
+                        progressBar.style.width = '0%';
+                        progressBar.classList.remove('animate-pulse');
+                    } else if (status === 'download_progress' && data?.status === 'progress') {
+                        progressBar.style.width = `${Math.round(data.progress)}%`;
+                    } else if (status === 'transcribing') {
+                        progressText.innerText = 'AI is transcribing... (Background processing active)';
+                        progressBar.style.width = '100%';
+                        progressBar.classList.add('animate-pulse');
+                    } else if (status === 'complete') {
+                        resolve(output);
+                    } else if (status === 'error') {
+                        reject(new Error(error));
+                    }
+                };
+                
+                aiWorker.onerror = (err) => reject(err);
+                aiWorker.postMessage({ type: 'transcribe', audioData: audioData }, [audioData.buffer]);
+            });
+        };
+
+        transcribeBtn.addEventListener('click', async () => {
+            if (!currentArrayBuffer || isProcessing) return;
+            
+            errorMessage.classList.add('hidden');
+
+            const MAX_FILE_SIZE_MB = 50;
+            if (currentFile.size > MAX_FILE_SIZE_MB * 1024 * 1024) { 
+                errorMessage.innerText = `File is too large (${(currentFile.size / (1024*1024)).toFixed(1)}MB). Please use a shorter audio clip under ${MAX_FILE_SIZE_MB}MB.`;
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            isProcessing = true;
+            transcribeBtn.disabled = true;
+            clearBtn.disabled = true;
+            transcribeBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            const originalBtnText = transcribeBtn.innerText;
+            transcribeBtn.innerText = "Processing...";
+            
+            progressSection.classList.remove('hidden');
+            resultSection.classList.add('hidden');
+            vocabSection.classList.add('hidden');
+            exportCsvBtn.classList.add('hidden');
+
+            try {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                const audioContext = new AudioContextClass({ sampleRate: 16000 });
+                if (audioContext.state === 'suspended') await audioContext.resume();
+
+                progressText.innerText = 'Decoding audio...';
+                progressBar.style.width = '100%';
+                progressBar.classList.add('animate-pulse');
+
+                const bufferCopy = currentArrayBuffer.slice(0);
+                
+                const audioBuffer = await new Promise((resolve, reject) => {
+                    const timeoutId = setTimeout(() => reject(new Error("Audio decoding timed out.")), 30000);
+                    audioContext.decodeAudioData(bufferCopy, 
+                        (buffer) => { clearTimeout(timeoutId); resolve(buffer); },
+                        (err) => { clearTimeout(timeoutId); reject(err || new Error("Failed to decode audio.")); }
+                    );
+                });
+
+                let audioData;
+                if (audioBuffer.sampleRate !== 16000) {
+                    progressText.innerText = 'Resampling audio...';
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    
+                    const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+                    const offlineCtx = new OfflineCtx(1, audioBuffer.duration * 16000, 16000);
+                    const source = offlineCtx.createBufferSource();
+                    source.buffer = audioBuffer;
+                    source.connect(offlineCtx.destination);
+                    source.start(0);
+                    const resampledBuffer = await offlineCtx.startRendering();
+                    audioData = resampledBuffer.getChannelData(0);
+                } else {
+                    audioData = audioBuffer.getChannelData(0);
+                }
+
+                const output = await runBackgroundTranscription(audioData);
+
+                const chunks = output.chunks || (Array.isArray(output) ? output[0]?.chunks : []);
+                
+                if (chunks && chunks.length > 0) {
+                    let htmlContent = "";
+                    let srtContent = "";
+                    let rawText = "";
+                    
+                    let previousText = ""; 
+                    let srtIndex = 1; 
+                    
+                    chunks.forEach((chunk) => {
+                        const start = chunk.timestamp[0];
+                        const end = chunk.timestamp[1] || start + 5; 
+                        const text = chunk.text.trim();
+                        
+                        const lowerText = text.toLowerCase();
+                        if (!text || lowerText === previousText) return;
+                        previousText = lowerText;
+                        
+                        srtContent += `${srtIndex}\n`;
+                        srtContent += `${formatTimeSRT(start)} --> ${formatTimeSRT(end)}\n`;
+                        srtContent += `${text}\n\n`;
+                        srtIndex++;
+                        
+                        htmlContent += `
+                            <div class="transcript-chunk flex gap-3 mb-2 border border-transparent border-b-gray-200 pb-2 last:border-b-transparent cursor-pointer rounded p-2 transition-all duration-200 hover:bg-gray-200 relative" title="Click to play from here" data-start="${start}" data-end="${end}">
+                                <span class="text-blue-600 font-mono text-xs mt-1 shrink-0 w-12 text-right">[${formatTimeUI(start)}]</span>
+                                <span class="text-gray-800 chunk-text transition-colors duration-200">${text}</span>
+                            </div>
+                        `;
+                        
+                        rawText += text + " ";
+                    });
+                    
+                    transcriptText.innerHTML = htmlContent;
+                    currentSrtContent = srtContent;
+                    currentRawText = rawText.trim();
+                } else {
+                    let finalTxt = output.text;
+                    if (!finalTxt && Array.isArray(output)) finalTxt = output[0]?.text;
+                    const text = finalTxt ? finalTxt.trim() : "No speech detected.";
+                    
+                    transcriptText.innerText = text;
+                    currentRawText = text;
+                    currentSrtContent = `1\n00:00:00,000 --> 00:00:05,000\n${text}\n\n`; 
+                }
+                
+                resultSection.classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Transcription Error:", error);
+                errorMessage.innerText = 'An error occurred: ' + (error.message || "Check the console for details.");
+                errorMessage.classList.remove('hidden');
+            } finally {
+                isProcessing = false;
+                transcribeBtn.disabled = false;
+                clearBtn.disabled = false;
+                transcribeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                transcribeBtn.innerText = originalBtnText;
+                progressSection.classList.add('hidden');
+                progressBar.classList.remove('animate-pulse');
+            }
+        });
+    </script>
+</body>
+</html>
