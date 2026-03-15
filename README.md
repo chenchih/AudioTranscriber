@@ -1,7 +1,6 @@
 # 🎙️AI Audio Transcriber & Vocab Study Tool
 
-- Live App: https://chenchih.github.io/audio-transcriber
-
+- Live App: https://chenchih.github.io/AudioTranscriber/
 
 A 100% private, client-side web application designed to **convert audio files into interactive transcripts**, generate **useful vocabulary lists** for English learners, and **export study materials to CSV**.
 
@@ -11,7 +10,7 @@ Built with vanilla JavaScript and Hugging Face's Transformers.js, this tool requ
 
 * **Convert Audio to Transcript:** Drag and drop any MP3, WAV, or M4A file (up to 50MB) to generate a highly accurate, timestamped transcript.
 
-* **CEFR-Level Vocabulary Generation: Select your target difficulty (A-Level Basic, B-Level Intermediate, or C-Level Advanced). The app analyzes the transcript, filters out common words based on your chosen level, and extracts complex/useful English vocabulary using smart heuristics and suffix detection.
+* **CEFR-Level Vocabulary Generation:** Select your target difficulty (`A-Level Basic`, `B-Level Intermediate`, or` C-Level Advanced`). The app analyzes the transcript, filters out common words based on your chosen level, and extracts complex/useful English vocabulary using smart heuristics and suffix detection.
 
 * **Rich Definitions & Translations:** Automatically fetches the Part of Speech, English definition, daily usage examples, and Traditional Chinese translations for each extracted word.
 
@@ -43,10 +42,9 @@ You must serve the file using a simple local web server:
 
 1. Open your Terminal or Command Prompt.
 2. Navigate to the folder where you saved the file:
-
-   ```bash
-   cd path/to/your/folder
-   ```
+```bash
+cd path/to/your/folder
+```
 3. Start the built-in Python server:
 ```
 python -m http.server 8000
@@ -63,14 +61,18 @@ python -m http.server 8000
 ## Output
 
 - TranscriptAudio
+
 ![TranscriptAudio](img/Transcript_1.png)
 
 - Upload Audio
+  
 ![UploadAudio](img/Transcript_2.png)
 
 - Convert Audio to Transcript
+
 ![Transcript](img/Transcript_3.png)
 
 - Vocab
+
 ![Vocab](img/Transcript_4.png)
 
