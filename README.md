@@ -11,7 +11,7 @@ Built with vanilla JavaScript and Hugging Face's Transformers.js, this tool requ
 
 * **Convert Audio to Transcript:** Drag and drop any MP3, WAV, or M4A file (up to 50MB) to generate a highly accurate, timestamped transcript.
 
-* ** CEFR-Level Vocabulary Generation: Select your target difficulty (A-Level Basic, B-Level Intermediate, or C-Level Advanced). The app analyzes the transcript, filters out common words based on your chosen level, and extracts complex/useful English vocabulary using smart heuristics and suffix detection.
+* **CEFR-Level Vocabulary Generation: Select your target difficulty (A-Level Basic, B-Level Intermediate, or C-Level Advanced). The app analyzes the transcript, filters out common words based on your chosen level, and extracts complex/useful English vocabulary using smart heuristics and suffix detection.
 
 * **Rich Definitions & Translations:** Automatically fetches the Part of Speech, English definition, daily usage examples, and Traditional Chinese translations for each extracted word.
 
